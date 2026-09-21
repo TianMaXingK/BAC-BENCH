@@ -1,4 +1,0 @@
-无编号cve-1
-漏洞描述：属于CWE-284: Improper Access Control漏洞
-漏洞版本：bookwyrm v0.4.5及之前
-漏洞效果：Send message to blocked user in bookwyrm-social/bookwyrm。1.USerA block userB  2.UserB send direct request to message endpoint with userA''s userID
