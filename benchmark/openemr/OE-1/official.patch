@@ -1,0 +1,57 @@
+From 9c430413101ab170c83ab4aa2d880ecdc170e815 Mon Sep 17 00:00:00 2001
+From: stephen waite <stephen.waite@cmsvt.com>
+Date: Sat, 6 Aug 2022 17:28:58 -0400
+Subject: [PATCH] bug fix (#5671)
+
+---
+ library/pnotes.inc | 33 +++++++++++++++++++++++++++++++--
+ 1 file changed, 31 insertions(+), 2 deletions(-)
+
+diff --git a/library/pnotes.inc b/library/pnotes.inc
+index 7ed70c6936b5..b0bf000c5b09 100644
+--- a/library/pnotes.inc
++++ b/library/pnotes.inc
+@@ -528,8 +528,15 @@ function reappearPnote($id)
+ 
+ function deletePnote($id)
+ {
+-    sqlStatement("UPDATE pnotes SET deleted = '1', update_by = ?, update_date = NOW() WHERE id=?", array($_SESSION['authUserID'], $id));
+-    return true;
++    if (
++        getAssignedToById($id) == $_SESSION['authUser']
++        || getMessageStatusById($id) == 'Done'
++    ) {
++        sqlStatement("UPDATE pnotes SET deleted = '1', update_by = ?, update_date = NOW() WHERE id=?", array($_SESSION['authUserID'], $id));
++        return true;
++    } else {
++        return false;
++    }
+ }
+ 
+ // Note that it is assumed that html escaping has happened before this function is called
+@@ -543,3 +550,25 @@ function pnoteConvertLinks($note)
+         return $noteActiveLink;
+     }
+ }
++
++/**
++ * Retrieve assigned_to field given the note ID
++ *
++ * @param string $id the ID of the note to retrieve.
++ */
++function getAssignedToById($id)
++{
++    $result = sqlQuery("SELECT assigned_to FROM pnotes WHERE id=?", array($id));
++    return $result['assigned_to'];
++}
++
++/**
++ * Retrieve message_status field given the note ID
++ *
++ * @param string $id the ID of the note to retrieve.
++ */
++function getMessageStatusById($id)
++{
++    $result = sqlQuery("SELECT message_status FROM pnotes WHERE id=?", array($id));
++    return $result['message_status'];
++}

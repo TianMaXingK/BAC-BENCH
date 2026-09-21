@@ -1,0 +1,108 @@
+From 2894aa37a24690bb523adeab025772bf1d358370 Mon Sep 17 00:00:00 2001
+From: Mouse Reeve <mousereeve@riseup.net>
+Date: Fri, 5 Aug 2022 09:12:48 -0700
+Subject: [PATCH] Fixes perms checks for groups
+
+---
+ bookwyrm/tests/views/test_group.py | 20 +++++++++++++++++++-
+ bookwyrm/views/group.py            | 20 +++++++++++++-------
+ 2 files changed, 32 insertions(+), 8 deletions(-)
+
+diff --git a/bookwyrm/tests/views/test_group.py b/bookwyrm/tests/views/test_group.py
+index b0a0c925a2..60fca6cb76 100644
+--- a/bookwyrm/tests/views/test_group.py
++++ b/bookwyrm/tests/views/test_group.py
+@@ -2,6 +2,7 @@
+ from unittest.mock import patch
+ 
+ from django.contrib.auth.models import AnonymousUser
++from django.core.exceptions import PermissionDenied
+ from django.http import Http404
+ from django.template.response import TemplateResponse
+ from django.test import TestCase
+@@ -15,7 +16,7 @@
+ class GroupViews(TestCase):
+     """view group and edit details"""
+ 
+-    def setUp(self):
++    def setUp(self):  # pylint: disable=invalid-name
+         """we need basic test data and mocks"""
+         self.factory = RequestFactory()
+         with patch("bookwyrm.suggested_users.rerank_suggestions_task.delay"), patch(
+@@ -129,6 +130,23 @@ def test_group_create(self, _):
+             ).exists()
+         )
+ 
++    def test_group_create_permission_denied(self, _):
++        """create group view"""
++        view = views.UserGroups.as_view()
++        request = self.factory.post(
++            "",
++            {
++                "name": "A group",
++                "description": "wowzers",
++                "privacy": "unlisted",
++                "user": self.local_user.id,
++            },
++        )
++        request.user = self.rat
++
++        with self.assertRaises(PermissionDenied):
++            view(request, "username")
++
+     def test_group_edit(self, _):
+         """test editing a "group" database entry"""
+         view = views.Group.as_view()
+diff --git a/bookwyrm/views/group.py b/bookwyrm/views/group.py
+index 469f787d3e..b2271e78da 100644
+--- a/bookwyrm/views/group.py
++++ b/bookwyrm/views/group.py
+@@ -1,7 +1,7 @@
+ """group views"""
+ from django.apps import apps
+ from django.contrib.auth.decorators import login_required
+-from django.db import IntegrityError
++from django.db import IntegrityError, transaction
+ from django.core.paginator import Paginator
+ from django.http import HttpResponseBadRequest
+ from django.shortcuts import get_object_or_404, redirect
+@@ -112,9 +112,13 @@ def post(self, request, username):
+         form = forms.GroupForm(request.POST)
+         if not form.is_valid():
+             return redirect(request.user.local_path + "/groups")
+-        group = form.save()
+-        # add the creator as a group member
+-        models.GroupMember.objects.create(group=group, user=request.user)
++
++        group = form.save(commit=False)
++        group.raise_not_editable(request.user)
++        with transaction.atomic():
++            group.save()
++            # add the creator as a group member
++            models.GroupMember.objects.create(group=group, user=request.user)
+         return redirect("group", group.id)
+ 
+ 
+@@ -128,6 +132,7 @@ def get(self, request, group_id):
+         """basic profile info"""
+         user_query = request.GET.get("user_query")
+         group = get_object_or_404(models.Group, id=group_id)
++        group.raise_not_editable(request.user)
+         lists = (
+             models.List.privacy_filter(request.user)
+             .filter(group=group)
+@@ -183,10 +188,11 @@ def delete_group(request, group_id):
+     # only the owner can delete a group
+     group.raise_not_deletable(request.user)
+ 
+-    # deal with any group lists
+-    models.List.objects.filter(group=group).update(curation="closed", group=None)
++    with transaction.atomic():
++        # deal with any group lists
++        models.List.objects.filter(group=group).update(curation="closed", group=None)
+ 
+-    group.delete()
++        group.delete()
+     return redirect(request.user.local_path + "/groups")
+ 
+ 

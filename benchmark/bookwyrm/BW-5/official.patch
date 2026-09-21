@@ -1,0 +1,208 @@
+From 05716c3578fafb21d1c9f6537ebe88a7a65d4ec7 Mon Sep 17 00:00:00 2001
+From: Mouse Reeve <mousereeve@riseup.net>
+Date: Thu, 14 Jul 2022 11:38:53 -0700
+Subject: [PATCH 1/5] Adds unit test for creating shelves for another user
+
+---
+ .../tests/views/shelf/test_shelf_actions.py   | 22 +++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/bookwyrm/tests/views/shelf/test_shelf_actions.py b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+index 93ff0a38e2..2f2c208c78 100644
+--- a/bookwyrm/tests/views/shelf/test_shelf_actions.py
++++ b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+@@ -32,6 +32,14 @@ def setUp(self):
+                 localname="mouse",
+                 remote_id="https://example.com/users/mouse",
+             )
++            self.another_user = models.User.objects.create_user(
++                "rat@local.com",
++                "rat@rat.com",
++                "ratword",
++                local=True,
++                localname="rat",
++                remote_id="https://example.com/users/rat",
++            )
+         self.work = models.Work.objects.create(title="Test Work")
+         self.book = models.Edition.objects.create(
+             title="Example Edition",
+@@ -165,6 +173,20 @@ def test_create_shelf(self, *_):
+         self.assertEqual(shelf.description, "desc")
+         self.assertEqual(shelf.user, self.local_user)
+ 
++    def test_create_shelf_wrong_user(self, *_):
++        """a brand new custom shelf"""
++        form = forms.ShelfForm()
++        form.data["user"] = self.another_user.id
++        form.data["name"] = "new shelf name"
++        form.data["description"] = "desc"
++        form.data["privacy"] = "unlisted"
++        request = self.factory.post("", form.data)
++        request.user = self.local_user
++
++        views.create_shelf(request)
++
++        self.assertIsNone(models.Shelf.objects.filter(name="new shelf name"))
++
+     def test_delete_shelf(self, *_):
+         """delete a brand new custom shelf"""
+         request = self.factory.post("")
+
+From 4f1283ff52cbf7cc37f6a66e8331e9eea9711ffe Mon Sep 17 00:00:00 2001
+From: Mouse Reeve <mousereeve@riseup.net>
+Date: Thu, 14 Jul 2022 11:42:59 -0700
+Subject: [PATCH 2/5] Check editability before creating shelf
+
+---
+ bookwyrm/views/shelf/shelf_actions.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bookwyrm/views/shelf/shelf_actions.py b/bookwyrm/views/shelf/shelf_actions.py
+index 5e7e6c0c92..003d8b3b7d 100644
+--- a/bookwyrm/views/shelf/shelf_actions.py
++++ b/bookwyrm/views/shelf/shelf_actions.py
+@@ -15,7 +15,9 @@ def create_shelf(request):
+     if not form.is_valid():
+         return redirect(request.headers.get("Referer", "/"))
+ 
+-    shelf = form.save()
++    shelf = form.save(commit=False)
++    shelf.raise_not_editable(request.user)
++    shelf.save()
+     return redirect(shelf.local_path)
+ 
+ 
+
+From 73c4a01a6e2f57024cced957e3f12d6b8fefd05d Mon Sep 17 00:00:00 2001
+From: Mouse Reeve <mousereeve@riseup.net>
+Date: Thu, 14 Jul 2022 11:45:59 -0700
+Subject: [PATCH 3/5] Test for PermissionDenied error, not isNone
+
+---
+ bookwyrm/tests/views/shelf/test_shelf_actions.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/bookwyrm/tests/views/shelf/test_shelf_actions.py b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+index 2f2c208c78..6d593c5e9c 100644
+--- a/bookwyrm/tests/views/shelf/test_shelf_actions.py
++++ b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+@@ -183,9 +183,9 @@ def test_create_shelf_wrong_user(self, *_):
+         request = self.factory.post("", form.data)
+         request.user = self.local_user
+ 
+-        views.create_shelf(request)
++        with self.assertRaises(PermissionDenied):
++            views.create_shelf(request)
+ 
+-        self.assertIsNone(models.Shelf.objects.filter(name="new shelf name"))
+ 
+     def test_delete_shelf(self, *_):
+         """delete a brand new custom shelf"""
+
+From 3f47cca5e64fd7008ece221f24cf5bf05ee60ccc Mon Sep 17 00:00:00 2001
+From: Mouse Reeve <mousereeve@riseup.net>
+Date: Thu, 14 Jul 2022 11:51:58 -0700
+Subject: [PATCH 4/5] Python formatting
+
+---
+ bookwyrm/tests/views/shelf/test_shelf_actions.py | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/bookwyrm/tests/views/shelf/test_shelf_actions.py b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+index 6d593c5e9c..f554404f3c 100644
+--- a/bookwyrm/tests/views/shelf/test_shelf_actions.py
++++ b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+@@ -186,7 +186,6 @@ def test_create_shelf_wrong_user(self, *_):
+         with self.assertRaises(PermissionDenied):
+             views.create_shelf(request)
+ 
+-
+     def test_delete_shelf(self, *_):
+         """delete a brand new custom shelf"""
+         request = self.factory.post("")
+
+From 317a239d40c9faf59eeec2c1f394fb7f0902633d Mon Sep 17 00:00:00 2001
+From: Mouse Reeve <mousereeve@riseup.net>
+Date: Thu, 14 Jul 2022 12:10:29 -0700
+Subject: [PATCH 5/5] Update shelf test now that it has multiple users
+
+---
+ .../tests/views/shelf/test_shelf_actions.py   | 26 +++++++------------
+ 1 file changed, 9 insertions(+), 17 deletions(-)
+
+diff --git a/bookwyrm/tests/views/shelf/test_shelf_actions.py b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+index f554404f3c..2902325804 100644
+--- a/bookwyrm/tests/views/shelf/test_shelf_actions.py
++++ b/bookwyrm/tests/views/shelf/test_shelf_actions.py
+@@ -74,7 +74,7 @@ def test_shelve(self, *_):
+ 
+     def test_shelve_to_read(self, *_):
+         """special behavior for the to-read shelf"""
+-        shelf = models.Shelf.objects.get(identifier="to-read")
++        shelf = models.Shelf.objects.get(user=self.local_user, identifier="to-read")
+         request = self.factory.post(
+             "", {"book": self.book.id, "shelf": shelf.identifier}
+         )
+@@ -87,7 +87,7 @@ def test_shelve_to_read(self, *_):
+ 
+     def test_shelve_reading(self, *_):
+         """special behavior for the reading shelf"""
+-        shelf = models.Shelf.objects.get(identifier="reading")
++        shelf = models.Shelf.objects.get(user=self.local_user, identifier="reading")
+         request = self.factory.post(
+             "", {"book": self.book.id, "shelf": shelf.identifier}
+         )
+@@ -100,7 +100,7 @@ def test_shelve_reading(self, *_):
+ 
+     def test_shelve_read(self, *_):
+         """special behavior for the read shelf"""
+-        shelf = models.Shelf.objects.get(identifier="read")
++        shelf = models.Shelf.objects.get(user=self.local_user, identifier="read")
+         request = self.factory.post(
+             "", {"book": self.book.id, "shelf": shelf.identifier}
+         )
+@@ -113,11 +113,13 @@ def test_shelve_read(self, *_):
+ 
+     def test_shelve_read_with_change_shelf(self, *_):
+         """special behavior for the read shelf"""
+-        previous_shelf = models.Shelf.objects.get(identifier="reading")
++        previous_shelf = models.Shelf.objects.get(
++            user=self.local_user, identifier="reading"
++        )
+         models.ShelfBook.objects.create(
+             shelf=previous_shelf, user=self.local_user, book=self.book
+         )
+-        shelf = models.Shelf.objects.get(identifier="read")
++        shelf = models.Shelf.objects.get(user=self.local_user, identifier="read")
+ 
+         request = self.factory.post(
+             "",
+@@ -168,7 +170,7 @@ def test_create_shelf(self, *_):
+ 
+         views.create_shelf(request)
+ 
+-        shelf = models.Shelf.objects.get(name="new shelf name")
++        shelf = models.Shelf.objects.get(user=self.local_user, name="new shelf name")
+         self.assertEqual(shelf.privacy, "unlisted")
+         self.assertEqual(shelf.description, "desc")
+         self.assertEqual(shelf.user, self.local_user)
+@@ -198,18 +200,8 @@ def test_delete_shelf(self, *_):
+ 
+     def test_delete_shelf_unauthorized(self, *_):
+         """delete a brand new custom shelf"""
+-        with patch("bookwyrm.suggested_users.rerank_suggestions_task.delay"), patch(
+-            "bookwyrm.activitystreams.populate_stream_task.delay"
+-        ), patch("bookwyrm.lists_stream.populate_lists_task.delay"):
+-            rat = models.User.objects.create_user(
+-                "rat@local.com",
+-                "rat@mouse.mouse",
+-                "password",
+-                local=True,
+-                localname="rat",
+-            )
+         request = self.factory.post("")
+-        request.user = rat
++        request.user = self.another_user
+ 
+         with self.assertRaises(PermissionDenied):
+             views.delete_shelf(request, self.shelf.id)
